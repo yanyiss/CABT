@@ -6,7 +6,7 @@
 #include <QUrl>
 
 #include "InteractiveViewerWidget.h"
-#include "AnisotropicMeshing_Interface.h"
+#include "..\src\Algorithm\AnisotropicMeshing_Interface.h"
 #include <algorithm>
 
 InteractiveViewerWidget::InteractiveViewerWidget(QWidget* parent /* = 0 */)

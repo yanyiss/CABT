@@ -1,6 +1,40 @@
-#include "..\..\MeshViewer\OpenglHeaders.h"
+#include "..\src\MeshViewer\OpenglHeaders.h"
 #include "AnisotropicMeshing_Interface.h"
 #include <Eigen/Dense>
+
+void smooth_metric(Mesh* mesh,
+	std::vector<double>& K1, std::vector<double>& K2,
+	std::vector<OpenMesh::Vec3d>& dir1, std::vector<OpenMesh::Vec3d>& dir2)
+{
+	Eigen::Matrix3d lvH;
+	K1.resize(mesh->n_vertices());
+	K2.resize(mesh->n_vertices());
+	dir1.resize(mesh->n_vertices());
+	dir2.resize(mesh->n_vertices());
+	Eigen::Matrix3d U; Eigen::Matrix3d V; Eigen::Vector3d sv; Eigen::Matrix3d diag_a; diag_a.setZero();
+	for (size_t i = 0; i < mesh->n_vertices(); i++)
+	{
+		auto pos = mesh->point(mesh->vertex_handle(i));
+		double x = pos[0]; double y = pos[1];
+		double tanh2x_ycosy = tanh(2.0 * x - y * cos(y));
+		double uxx = 2.0;// -2.0 * (4.0 - 4.0 * tanh2x_ycosy * tanh2x_ycosy) * tanh2x_ycosy;
+		double uxy = 0.0;// -4.0 * (1.0 - tanh2x_ycosy * tanh2x_ycosy) * (y * sin(y) - cos(y)) * tanh2x_ycosy;
+		double uyy = 1.0;// -2.0 * (1.0 - tanh2x_ycosy * tanh2x_ycosy) * (y * sin(y) - cos(y)) * (y * sin(y) - cos(y)) * tanh2x_ycosy
+				//+ (1.0 - tanh2x_ycosy * tanh2x_ycosy) * (y * cos(y) + 2.0 * sin(y));
+		lvH << uxx, uxy, 0.0,
+			uxy, uyy, 0.0,
+			0.0, 0.0, 1.0;
+
+
+		Eigen::JacobiSVD<Eigen::Matrix3d> svd(lvH, Eigen::ComputeFullU | Eigen::ComputeFullV);
+		U = svd.matrixU(); V = svd.matrixV(); sv = svd.singularValues();
+		diag_a(0, 0) = std::sqrt(sv(0)); diag_a(1, 1) = std::sqrt(sv(1)); diag_a(2, 2) = std::sqrt(sv(2));
+
+		K1[i] = 5.0; K2[i] = 1.0;
+		dir1[i] = OpenMesh::Vec3d(1.0, 0.0, 0.0);
+		dir2[i] = OpenMesh::Vec3d(0.0, 1.0, 0.0);
+	}
+};
 
 anisotropic_meshing_interface::anisotropic_meshing_interface()
 {
@@ -68,6 +102,8 @@ void anisotropic_meshing_interface::build_AABB_tree_using_Ref()
 
 void anisotropic_meshing_interface::project_on_reference_mesh_with_metric(Mesh::VertexHandle vh, OpenMesh::Vec3d& p)
 {
+	if (mesh_->data(vh).get_corner())
+		return;
 	CGAL_AABB_Tree::Point_and_primitive_id point_primitive = AABB_tree->closest_point_and_primitive( CGAL_double_3_Point(p[0], p[1], p[2]) );
 	CGAL_double_3_Point pos = point_primitive.first;
 	CGAL_Triangle_Iterator it = point_primitive.second;
@@ -143,6 +179,8 @@ void anisotropic_meshing_interface::build_AABB_tree_feature_edge_using_Ref()
 
 void anisotropic_meshing_interface::project_on_reference_edge_with_metric(Mesh::VertexHandle vh, OpenMesh::Vec3d& p)
 {
+	if (mesh_->data(vh).get_corner())
+		return;
 	CGAL_AABB_Segment_Tree::Point_and_primitive_id point_primitive = AABB_Segment_tree->closest_point_and_primitive( CGAL_double_3_Point(p[0], p[1], p[2]) );
 	CGAL_double_3_Point pos = point_primitive.first;
 	CGAL_Segment_Iterator it = point_primitive.second;
@@ -264,7 +302,8 @@ void anisotropic_meshing_interface::load_ref_mesh(const char* filename)
 		ref_mesh_->request_vertex_normals();
 
 		std::vector<double> K1, K2; std::vector<OpenMesh::Vec3d> D1, D2;
-		compute_principal_curvature(ref_mesh_, K1, K2, D1, D2);
+		//compute_principal_curvature(ref_mesh_, K1, K2, D1, D2);
+		smooth_metric(ref_mesh_, K1, K2, D1, D2);
 
 		int nv = ref_mesh_->n_vertices();
 		Eigen::Matrix3d H; Eigen::Matrix3d D; D.setZero();
@@ -294,6 +333,8 @@ void anisotropic_meshing_interface::load_ref_mesh(const char* filename)
 			h[3] = vH[i](1,1); h[4] = vH[i](1,2); h[5] = vH[i](2,2);
 			ref_mesh_->data(vh).set_Hessian(h);
 		}
+
+
 		std::vector<Eigen::Matrix3d> vH2(nv);
 		double ave_len = calc_mesh_ave_edge_length(ref_mesh_);
 		double alpha = 2.0 / (ave_len*ave_len);
@@ -1665,9 +1706,9 @@ void anisotropic_meshing_interface::reposition_exp_mips(double area_angle_ratio,
 			{
 				Mesh::HalfedgeHandle heh = mesh_->next_halfedge_handle(voh_it);
 				vh = mesh_->to_vertex_handle(heh); p2 = mesh_->point(vh);
-				int v_id3 = vh.idx();
+				int v_o2tensor2vec = vh.idx();
 				double x3 = p2[0]; double y3 = p2[1]; double z3 = p2[2];
-				OpenMesh::Vec6d h = (vH[vertex_id] + vH[v_id2] + vH[v_id3]) / 3.0;
+				OpenMesh::Vec6d h = (vH[vertex_id] + vH[v_id2] + vH[v_o2tensor2vec]) / 3.0;
 
 				vm(0, 0) = h[0]; vm(0, 1) = h[1]; vm(0, 2) = h[2];
 				vm(1, 0) = h[1]; vm(1, 1) = h[3]; vm(1, 2) = h[4];
@@ -1794,6 +1835,10 @@ void anisotropic_meshing_interface::reposition_exp_mips(double area_angle_ratio,
 			project_on_reference(np, p, dir, dis);
 			new_e = compute_exp_mips_area_energy(v_it.handle(), np, vH, area_angle_ratio, energy_power);
 		}
+
+
+		if (mesh_->data(v_it).get_corner())
+			return;
 		mesh_->set_point(v_it, np);
 		//project_on_reference_mesh_with_metric(v_it.handle(), np);
 		//vH[vertex_id] = mesh_->data(v_it.handle()).get_Hessian();
@@ -1815,9 +1860,9 @@ double anisotropic_meshing_interface::compute_exp_mips_area_energy(Mesh::VertexH
 		{
 			Mesh::HalfedgeHandle heh = mesh_->next_halfedge_handle(voh_it);
 			vh = mesh_->to_vertex_handle(heh); OpenMesh::Vec3d p2 = mesh_->point(vh);
-			int v_id3 = vh.idx();
+			int v_o2tensor2vec = vh.idx();
 			double x3 = p2[0]; double y3 = p2[1]; double z3 = p2[2];
-			OpenMesh::Vec6d h = (vH[vertex_id] + vH[v_id2] + vH[v_id3]) / 3.0;
+			OpenMesh::Vec6d h = (vH[vertex_id] + vH[v_id2] + vH[v_o2tensor2vec]) / 3.0;
 
 			vm(0, 0) = h[0]; vm(0, 1) = h[1]; vm(0, 2) = h[2];
 			vm(1, 0) = h[1]; vm(1, 1) = h[3]; vm(1, 2) = h[4];

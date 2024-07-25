@@ -2,7 +2,7 @@
 #define INTERACTIVE_VIEWER_WIDGET
 
 #include "MeshViewerWidget.h"
-#include "ANN\ANN.h"
+#include "..\Dependency\ANN\ANN.h"
 
 class anisotropic_meshing_interface;
 

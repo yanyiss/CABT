@@ -2,10 +2,14 @@
 #define ANISOTROPICMESHING_INTERFACE_H
 
 #include <QObject>
-#include "..\..\MeshViewer\MeshDefinition.h"
+#include "..\src\MeshViewer\MeshDefinition.h"
 #include <OpenMesh/Core/IO/MeshIO.hh>
-#include "..\..\Common\CommonDefinitions.h"
-#include "..\..\Common\CGAL_Definition.h"
+#include "..\src\Common\CommonDefinitions.h"
+#include "..\src\Common\CGAL_Definition.h"
+
+void smooth_metric(Mesh* mesh,
+	std::vector<double>& K1, std::vector<double>& K2,
+	std::vector<OpenMesh::Vec3d>& dir1, std::vector<OpenMesh::Vec3d>& dir2);
 
 class anisotropic_meshing_interface : public QObject
 {
@@ -18,6 +22,10 @@ public:
 	{
 		reset_all_State();
 		mesh_ = mesh;
+		for (int i = 0; i < 4; ++i)
+		{
+			mesh_->data(mesh_->vertex_handle(i)).set_corner();
+		}
 	}
 	void reset_all_State();
 

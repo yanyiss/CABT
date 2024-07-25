@@ -59,13 +59,13 @@ struct MeshTraits : public OpenMesh::DefaultTraits
 	public:
 		void set_opposite_angle(const double& a){opposite_angle = a;};
 		double& get_opposite_angle(){return opposite_angle;};
-		int get_face_he_var() { return face_he_var; };
 		void set_face_he_var(int fhe) { face_he_var = fhe; };
+		int get_face_he_var() { return face_he_var; };
 	};
 
 	VertexTraits
 	{
-		VertexT() : node_type(0), new_pos_fixed(false), color(1), density(1.0), h(OpenMesh::Vec6d(1, 0, 0, 1, 0, 1))
+		VertexT() : node_type(0), new_pos_fixed(false), color(1), density(1.0), h(OpenMesh::Vec6d(1, 0, 0, 1, 0, 1)),corner(false)
 		{
 		};
 	private:
@@ -75,6 +75,7 @@ struct MeshTraits : public OpenMesh::DefaultTraits
 		int node_type;
 		int color;
 		double density;
+		bool corner;
 	public:
 		void set_Hessian(const OpenMesh::Vec6d& h_){h = h_;};
 		OpenMesh::Vec6d& get_Hessian(){return h;};
@@ -93,6 +94,9 @@ struct MeshTraits : public OpenMesh::DefaultTraits
 
 		void set_density(double d){ density = d; };
 		double get_density(){ return density; };
+
+		void set_corner() { corner = true; };
+		bool get_corner() { return corner; };
 	};
 };
 

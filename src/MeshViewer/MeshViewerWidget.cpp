@@ -8,7 +8,7 @@
 #include <OpenMesh/Core/IO/MeshIO.hh>
 
 #include "MeshViewerWidget.h"
-#include "Common/CommonDefinitions.h"
+#include "..\src\Common\CommonDefinitions.h"
 
 using namespace Qt;
 
